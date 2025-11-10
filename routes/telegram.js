@@ -158,6 +158,58 @@ router.get('/telegram-webhook-status', async (req, res) => {
 });
 
 /**
+ * Update news by ID (Admin only)
+ */
+router.put('/news/:id', (req, res) => {
+  try {
+    const adminToken = req.headers['x-admin-token'];
+    
+    // Admin token kontrolü
+    if (!adminToken || !req.headers['x-admin-verified']) {
+      return res.status(401).json({
+        ok: false,
+        error: 'Unauthorized: Admin token required',
+      });
+    }
+    
+    const { id } = req.params;
+    const { title, body, emoji } = req.body;
+    
+    // Find and update news
+    const newsIndex = storedNews.findIndex(item => item.id === id);
+    
+    if (newsIndex !== -1) {
+      storedNews[newsIndex] = {
+        ...storedNews[newsIndex],
+        title: title || storedNews[newsIndex].title,
+        body: body || storedNews[newsIndex].body,
+        emoji: emoji || storedNews[newsIndex].emoji,
+      };
+      
+      console.log(`✅ Haber güncellendi: ${id}`);
+      res.json({
+        ok: true,
+        message: 'News updated successfully',
+        id: id,
+        news: storedNews[newsIndex],
+      });
+    } else {
+      res.status(404).json({
+        ok: false,
+        error: 'News not found',
+        id: id,
+      });
+    }
+  } catch (error) {
+    console.error('Error updating news:', error);
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
  * Delete news by ID (Admin only)
  */
 router.delete('/news/:id', (req, res) => {
