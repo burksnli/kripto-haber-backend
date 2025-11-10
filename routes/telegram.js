@@ -158,10 +158,20 @@ router.get('/telegram-webhook-status', async (req, res) => {
 });
 
 /**
- * Delete news by ID
+ * Delete news by ID (Admin only)
  */
 router.delete('/news/:id', (req, res) => {
   try {
+    const adminToken = req.headers['x-admin-token'];
+    
+    // Admin token kontrolü (basit kontrol, production'da daha güvenli olmalı)
+    if (!adminToken || !req.headers['x-admin-verified']) {
+      return res.status(401).json({
+        ok: false,
+        error: 'Unauthorized: Admin token required',
+      });
+    }
+    
     const { id } = req.params;
     
     // Find and remove news from array
@@ -169,6 +179,7 @@ router.delete('/news/:id', (req, res) => {
     storedNews = storedNews.filter(item => item.id !== id);
     
     if (storedNews.length < initialLength) {
+      console.log(`✅ Haber silindi: ${id}`);
       res.json({
         ok: true,
         message: 'News deleted successfully',
