@@ -17,6 +17,15 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin-secret-token-2024';
 // Admin tokens (actve oturum saklama)
 let activeAdminTokens = [];
 
+// Ads Configuration (in-memory storage)
+let adsConfig = {
+  bannerAdsEnabled: true,
+  bannerAdUnitId: 'ca-app-pub-9613759307120698/4102399714',
+  showAdsOnNewsPage: true,
+  showAdsOnPricesPage: false,
+  showAdsOnHomeScreen: false,
+};
+
 // Middleware
 app.use(cors({
   origin: '*',
@@ -96,6 +105,40 @@ app.post('/admin/logout', verifyAdmin, (req, res) => {
     ok: true,
     message: 'Logout successful',
   });
+});
+
+// Ads Configuration endpoints
+app.get('/admin/ads/config', (req, res) => {
+  res.json({
+    ok: true,
+    config: adsConfig,
+  });
+});
+
+app.put('/admin/ads/config', verifyAdmin, (req, res) => {
+  try {
+    const { bannerAdsEnabled, showAdsOnNewsPage, showAdsOnPricesPage, showAdsOnHomeScreen } = req.body;
+    
+    // Update config
+    if (bannerAdsEnabled !== undefined) adsConfig.bannerAdsEnabled = bannerAdsEnabled;
+    if (showAdsOnNewsPage !== undefined) adsConfig.showAdsOnNewsPage = showAdsOnNewsPage;
+    if (showAdsOnPricesPage !== undefined) adsConfig.showAdsOnPricesPage = showAdsOnPricesPage;
+    if (showAdsOnHomeScreen !== undefined) adsConfig.showAdsOnHomeScreen = showAdsOnHomeScreen;
+    
+    console.log('✅ Ads configuration updated:', adsConfig);
+    
+    res.json({
+      ok: true,
+      message: 'Ads configuration updated',
+      config: adsConfig,
+    });
+  } catch (error) {
+    console.error('Error updating ads config:', error);
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
 });
 
 // API routes
