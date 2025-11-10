@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: kriptohaber-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: NODE_ENV
+        value: production
+      - key: TELEGRAM_BOT_TOKEN
+        fromDatabase:
+          name: telegram_bot_token
+
