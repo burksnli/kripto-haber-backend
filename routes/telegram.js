@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const path = require('path');
 
 let lastUpdateId = 0;
@@ -8,28 +8,30 @@ let storedNews = []; // Telegram haberlerini sakla
 
 // SQLite database initialize
 const dbPath = path.join(__dirname, '../news.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) console.error('Database error:', err);
-  else {
-    // Create table if doesn't exist
-    db.run(`
-      CREATE TABLE IF NOT EXISTS news (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        body TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        source TEXT,
-        emoji TEXT,
-        raw_message TEXT
-      )
-    `);
-    
-    // Load existing news from database
-    db.all('SELECT * FROM news ORDER BY timestamp DESC LIMIT 50', (err, rows) => {
-      if (rows) storedNews = rows;
-    });
+const db = new Database(dbPath);
+
+// Create table if doesn't exist
+db.exec(`
+  CREATE TABLE IF NOT EXISTS news (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    body TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    source TEXT,
+    emoji TEXT,
+    raw_message TEXT
+  )
+`);
+
+// Load existing news from database
+try {
+  const rows = db.prepare('SELECT * FROM news ORDER BY timestamp DESC LIMIT 50').all();
+  if (rows && rows.length > 0) {
+    storedNews = rows;
   }
-});
+} catch (err) {
+  console.error('Error loading news from database:', err);
+}
 
 /**
  * Telegram Webhook POST endpoint
@@ -112,10 +114,12 @@ function processMessage(message) {
   };
 
   // Database'e kaydet
-  db.run(
-    `INSERT OR REPLACE INTO news (id, title, body, timestamp, source, emoji, raw_message) 
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
+  try {
+    const stmt = db.prepare(
+      `INSERT OR REPLACE INTO news (id, title, body, timestamp, source, emoji, raw_message) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    );
+    stmt.run(
       telegramMessage.id,
       telegramMessage.title,
       telegramMessage.body,
@@ -123,8 +127,10 @@ function processMessage(message) {
       telegramMessage.source,
       telegramMessage.emoji,
       JSON.stringify(telegramMessage.raw_message)
-    ]
-  );
+    );
+  } catch (err) {
+    console.error('Error saving to database:', err);
+  }
 
   // Haberi array'e ekle (en yeni başa)
   storedNews.unshift(telegramMessage);
