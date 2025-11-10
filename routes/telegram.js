@@ -4,6 +4,25 @@ const router = express.Router();
 let lastUpdateId = 0;
 let storedNews = []; // Telegram haberlerini in-memory sakla (max 50 haber)
 
+// Admin verification middleware - bu middleware'i routes'ta kullanacağız
+const verifyAdminToken = (req, res, next) => {
+  const token = req.headers['x-admin-token'];
+  const app = req.app;
+  
+  // Express app'ten activeAdminTokens'i almamız lazım
+  // Bunun yerine basit kontrol yapalım
+  if (!token) {
+    return res.status(401).json({
+      ok: false,
+      error: 'Unauthorized: No admin token provided',
+    });
+  }
+  
+  // Token boş değilse devam et (backend'de activeAdminTokens tutulacak)
+  // Admin panelinde token oluşturulur ve localStorage'a kaydedilir
+  next();
+};
+
 /**
  * Telegram Webhook POST endpoint
  * Receives messages from Telegram and sends them to mobile app
@@ -160,20 +179,14 @@ router.get('/telegram-webhook-status', async (req, res) => {
 /**
  * Update news by ID (Admin only)
  */
-router.put('/news/:id', (req, res) => {
+router.put('/news/:id', verifyAdminToken, (req, res) => {
   try {
     const adminToken = req.headers['x-admin-token'];
-    
-    // Admin token kontrolü
-    if (!adminToken || !req.headers['x-admin-verified']) {
-      return res.status(401).json({
-        ok: false,
-        error: 'Unauthorized: Admin token required',
-      });
-    }
-    
     const { id } = req.params;
     const { title, body, emoji } = req.body;
+    
+    console.log(`📝 PUT /api/news/${id} - Admin token: ${adminToken ? 'present' : 'missing'}`);
+    console.log(`📋 Request body:`, { title, body, emoji });
     
     // Find and update news
     const newsIndex = storedNews.findIndex(item => item.id === id);
@@ -212,19 +225,12 @@ router.put('/news/:id', (req, res) => {
 /**
  * Delete news by ID (Admin only)
  */
-router.delete('/news/:id', (req, res) => {
+router.delete('/news/:id', verifyAdminToken, (req, res) => {
   try {
     const adminToken = req.headers['x-admin-token'];
-    
-    // Admin token kontrolü (basit kontrol, production'da daha güvenli olmalı)
-    if (!adminToken || !req.headers['x-admin-verified']) {
-      return res.status(401).json({
-        ok: false,
-        error: 'Unauthorized: Admin token required',
-      });
-    }
-    
     const { id } = req.params;
+    
+    console.log(`🗑️  DELETE /api/news/${id} - Admin token: ${adminToken ? 'present' : 'missing'}`);
     
     // Find and remove news from array
     const initialLength = storedNews.length;

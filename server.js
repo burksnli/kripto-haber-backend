@@ -21,8 +21,8 @@ let activeAdminTokens = [];
 app.use(cors({
   origin: '*',
   credentials: true,
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'ngrok-skip-browser-warning']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'ngrok-skip-browser-warning', 'x-admin-token', 'x-admin-verified']
 }));
 
 // Ngrok browser warning bypass
