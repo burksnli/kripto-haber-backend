@@ -158,6 +158,39 @@ router.get('/telegram-webhook-status', async (req, res) => {
 });
 
 /**
+ * Delete news by ID
+ */
+router.delete('/news/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find and remove news from array
+    const initialLength = storedNews.length;
+    storedNews = storedNews.filter(item => item.id !== id);
+    
+    if (storedNews.length < initialLength) {
+      res.json({
+        ok: true,
+        message: 'News deleted successfully',
+        id: id,
+      });
+    } else {
+      res.status(404).json({
+        ok: false,
+        error: 'News not found',
+        id: id,
+      });
+    }
+  } catch (error) {
+    console.error('Error deleting news:', error);
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
  * Send test message
  */
 router.post('/telegram-test', (req, res) => {
