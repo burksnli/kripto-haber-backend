@@ -3,6 +3,7 @@ const router = express.Router();
 
 let lastUpdateId = 0;
 let storedNews = []; // Telegram haberlerini in-memory sakla (max 50 haber)
+let pushTokens = []; // Kullanıcı push token'larını sakla
 
 // Admin verification middleware - bu middleware'i routes'ta kullanacağız
 const verifyAdminToken = (req, res, next) => {
@@ -87,9 +88,51 @@ router.get('/telegram-poll', async (req, res) => {
 });
 
 /**
+ * Send Expo Push Notifications to all registered devices
+ */
+async function sendPushNotifications(newsItem) {
+  if (pushTokens.length === 0) {
+    console.log('⚠️ No push tokens registered');
+    return;
+  }
+
+  const messages = pushTokens.map(token => ({
+    to: token,
+    sound: 'default',
+    title: '📰 Yeni Haber!',
+    body: newsItem.title,
+    data: { 
+      newsId: newsItem.id,
+      title: newsItem.title,
+      body: newsItem.body,
+    },
+    badge: 1,
+    priority: 'high',
+  }));
+
+  console.log(`📤 Sending ${messages.length} push notifications...`);
+
+  try {
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(messages),
+    });
+
+    const result = await response.json();
+    console.log('✅ Push notifications sent:', result);
+  } catch (error) {
+    console.error('❌ Error sending push notifications:', error);
+  }
+}
+
+/**
  * Process incoming message
  */
-function processMessage(message) {
+async function processMessage(message) {
   const messageText = message.text.trim();
   const lines = messageText.split('\n');
   
@@ -116,12 +159,49 @@ function processMessage(message) {
   console.log(`📝 İçerik: ${telegramMessage.body}`);
   console.log(`⏰ Zaman: ${telegramMessage.timestamp}`);
   console.log(`📊 Toplam haberler: ${storedNews.length}`);
+  console.log(`📱 Kayıtlı cihazlar: ${pushTokens.length}`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-  // TODO: Integrate with Firebase Cloud Messaging (FCM)
-  // const fcmToken = await getUserFCMToken();
-  // await sendPushNotification(fcmToken, telegramMessage);
+  // Send push notifications to all registered devices
+  await sendPushNotifications(telegramMessage);
 }
+
+/**
+ * Register push token from mobile app
+ */
+router.post('/register-push-token', (req, res) => {
+  try {
+    const { pushToken } = req.body;
+    
+    if (!pushToken) {
+      return res.status(400).json({
+        ok: false,
+        error: 'pushToken is required',
+      });
+    }
+
+    // Check if token already exists
+    if (!pushTokens.includes(pushToken)) {
+      pushTokens.push(pushToken);
+      console.log('✅ New push token registered:', pushToken);
+      console.log(`📱 Total registered devices: ${pushTokens.length}`);
+    } else {
+      console.log('ℹ️ Push token already registered');
+    }
+
+    res.json({
+      ok: true,
+      message: 'Push token registered successfully',
+      totalDevices: pushTokens.length,
+    });
+  } catch (error) {
+    console.error('Error registering push token:', error);
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
 
 /**
  * Get all stored news
